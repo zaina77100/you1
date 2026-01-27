@@ -15,6 +15,8 @@ import pickle
 import subprocess
 import hashlib
 import tempfile
+import shutil
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -22,7 +24,7 @@ import concurrent.futures
 
 # ==================== استيراد المكتبات ====================
 try:
-    import google.generativeai as genai
+    import google.genai as genai  # ⬅️ تغيير هنا: استخدام genai الجديد بدلاً من generativeai
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
     from google_auth_oauthlib.flow import InstalledAppFlow
@@ -31,12 +33,28 @@ try:
     import cv2
     import numpy as np
     from PIL import Image, ImageDraw, ImageFont, ImageFilter
-    import whisper
+    
+    # محاولة استيراد whisper إذا متوفر
+    try:
+        import whisper
+        WHISPER_AVAILABLE = True
+    except ImportError:
+        WHISPER_AVAILABLE = False
+        print("⚠️ Whisper غير مثبت، سيتم تعطيل الترجمة الصوتية")
+    
     from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-    import mediapipe as mp
+    
+    # محاولة استيراد mediapipe إذا متوفر
+    try:
+        import mediapipe as mp
+        MEDIAPIPE_AVAILABLE = True
+    except ImportError:
+        MEDIAPIPE_AVAILABLE = False
+        print("⚠️ MediaPipe غير مثبت، سيتم تعطيل كشف الوجوه")
+        
 except ImportError as e:
     print(f"❌ مكتبة مفقودة: {e}")
-    print("📦 قم بتثبيت: pip install google-generativeai google-api-python-client yt-dlp opencv-python pillow openai-whisper moviepy mediapipe")
+    print("📦 قم بتثبيت: pip install google-genai google-api-python-client yt-dlp opencv-python pillow openai-whisper moviepy mediapipe")
     sys.exit(1)
 
 # ==================== إعدادات GRIT & GOLD ====================
@@ -199,6 +217,10 @@ class AIContentEngine:
     
     def init_whisper(self):
         """تهيئة Whisper للترجمة"""
+        if not WHISPER_AVAILABLE:
+            self.logger.warning("⚠️ Whisper غير متوفر، سيتم تعطيل الترجمة الصوتية")
+            return
+        
         try:
             self.whisper_model = whisper.load_model("base")
             self.logger.info("✅ Whisper مهيأ للترجمة")
@@ -546,6 +568,9 @@ class VideoProcessor:
     
     def init_face_detector(self):
         """تهيئة كاشف الوجوه"""
+        if not MEDIAPIPE_AVAILABLE:
+            return None
+            
         try:
             mp_face = mp.solutions.face_detection
             return mp_face.FaceDetection(min_detection_confidence=0.5)
