@@ -504,15 +504,17 @@ class YouTubeAutoUploader:
     def __init__(self):
         # لم نعد بحاجة لمسارات الملفات هنا لأننا نستخدم الأسرار
         self.service = self._get_youtube_service()
-        def authenticate(self) -> bool:
+        
+   def authenticate(self) -> bool:
         """المصادقة مع يوتيوب باستخدام أسرار GitHub أو الملفات المحلية"""
         try:
             from google.oauth2.credentials import Credentials
             from googleapiclient.discovery import build
             from google.auth.transport.requests import Request
             import os
+            import pickle
 
-            # 1. محاولة الجلب من أسرار GitHub (للعمل السحابي)
+            # 1. محاولة الجلب من أسرار GitHub
             client_id = os.getenv("YT_CLIENT_ID")
             client_secret = os.getenv("YT_CLIENT_SECRET")
             refresh_token = os.getenv("YT_REFRESH_TOKEN")
@@ -525,27 +527,24 @@ class YouTubeAutoUploader:
                     client_secret=client_secret,
                     token_uri="https://oauth2.googleapis.com/token"
                 )
-                # تجديد التوكن إذا لزم الأمر
                 if not creds.valid:
                     creds.refresh(Request())
-                
                 self.service = build("youtube", "v3", credentials=creds)
                 print("✅ تم المصادقة عبر GitHub Secrets")
                 return True
 
-            # 2. إذا لم يجد أسراراً، يبحث عن ملف token.pickle (للعمل المحلي في البيت)
-            if self.token_file.exists():
-                with open(self.token_file, 'rb') as token:
+            # 2. البحث المحلي (احتياطي)
+            token_path = GRIT_GOLD_CONFIG.CONFIG_DIR / "token.pickle"
+            if token_path.exists():
+                with open(token_path, 'rb') as token:
                     creds = pickle.load(token)
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                self.service = build("youtube", "v3", credentials=creds)
-                print("✅ تم المصادقة عبر ملف token.pickle")
-                return True
+                    if creds and creds.expired and creds.refresh_token:
+                        creds.refresh(Request())
+                    self.service = build("youtube", "v3", credentials=creds)
+                    print("✅ تم المصادقة عبر ملف محلي")
+                    return True
 
-            print("❌ لا توجد أسرار في GitHub ولا ملفات مصادقة محلية!")
             return False
-
         except Exception as e:
             print(f"❌ خطأ في المصادقة: {e}")
             return False
@@ -800,4 +799,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-        
