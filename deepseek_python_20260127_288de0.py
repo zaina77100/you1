@@ -502,49 +502,50 @@ class YouTubeAutoUploader:
     """الرفع التلقائي لليوتيوب"""
     
     def __init__(self):
-        self.service = None
-        self.credentials_file = GRIT_GOLD_CONFIG.CONFIG_DIR / "client_secret.json"
-        self.token_file = GRIT_GOLD_CONFIG.CONFIG_DIR / "token.pickle"
-        
-    def authenticate(self) -> bool:
-        """المصادقة مع يوتيوب API"""
+        # لم نعد بحاجة لمسارات الملفات هنا لأننا نستخدم الأسرار
+        self.service = self._get_youtube_service()
+        def authenticate(self) -> bool:
+        """المصادقة مع يوتيوب باستخدام أسرار GitHub أو الملفات المحلية"""
         try:
-            from google_auth_oauthlib.flow import InstalledAppFlow
-            from google.auth.transport.requests import Request
             from google.oauth2.credentials import Credentials
-            
-            SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
-            creds = None
-            
-            # تحميل التوكن الموجود
+            from googleapiclient.discovery import build
+            from google.auth.transport.requests import Request
+            import os
+
+            # 1. محاولة الجلب من أسرار GitHub (للعمل السحابي)
+            client_id = os.getenv("YT_CLIENT_ID")
+            client_secret = os.getenv("YT_CLIENT_SECRET")
+            refresh_token = os.getenv("YT_REFRESH_TOKEN")
+
+            if all([client_id, client_secret, refresh_token]):
+                creds = Credentials(
+                    token=None,
+                    refresh_token=refresh_token,
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    token_uri="https://oauth2.googleapis.com/token"
+                )
+                # تجديد التوكن إذا لزم الأمر
+                if not creds.valid:
+                    creds.refresh(Request())
+                
+                self.service = build("youtube", "v3", credentials=creds)
+                print("✅ تم المصادقة عبر GitHub Secrets")
+                return True
+
+            # 2. إذا لم يجد أسراراً، يبحث عن ملف token.pickle (للعمل المحلي في البيت)
             if self.token_file.exists():
                 with open(self.token_file, 'rb') as token:
                     creds = pickle.load(token)
-            
-            # إذا لم تكن هناك بيانات مصادقة أو انتهت صلاحيتها
-            if not creds or not creds.valid:
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(Request())
-                else:
-                    if not self.credentials_file.exists():
-                        print("❌ ملف client_secret.json غير موجود")
-                        return False
-                    
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        str(self.credentials_file), SCOPES
-                    )
-                    creds = flow.run_local_server(port=0)
-                
-                # حفظ التوكن للمرة القادمة
-                with open(self.token_file, 'wb') as token:
-                    pickle.dump(creds, token)
-            
-            # بناء الخدمة
-            from googleapiclient.discovery import build
-            self.service = build("youtube", "v3", credentials=creds)
-            print("✅ تم المصادقة مع يوتيوب API")
-            return True
-            
+                self.service = build("youtube", "v3", credentials=creds)
+                print("✅ تم المصادقة عبر ملف token.pickle")
+                return True
+
+            print("❌ لا توجد أسرار في GitHub ولا ملفات مصادقة محلية!")
+            return False
+
         except Exception as e:
             print(f"❌ خطأ في المصادقة: {e}")
             return False
