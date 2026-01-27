@@ -1,0 +1,15 @@
+# المكتبات الأساسية
+google-genai>=0.3.0
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.1.0
+yt-dlp>=2023.11.14
+opencv-python-headless==4.8.1.78
+Pillow>=10.0.0
+moviepy==1.0.3
+imageio==2.31.5
+imageio-ffmpeg>=0.4.8
+numpy>=1.24.0
+
+# المكتبات الاختيارية (لن تتوقف التثبيت إذا فشلت)
+openai-whisper>=20231117 ; python_version >= '3.8'
+mediapipe>=0.10.7 ; python_version >= '3.8'
