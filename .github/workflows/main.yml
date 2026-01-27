@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # ⬅️ استخدام نسخة مستقرة
     timeout-minutes: 30
     
     steps:
@@ -20,104 +20,44 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg wget
-          # المكتبات المطلوبة لـ OpenCV
-          sudo apt-get install -y libsm6 libxext6 libxrender-dev libglib2.0-0
+          sudo apt-get install -y ffmpeg
       
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip setuptools wheel
-          
-          # تثبيت المكتبات الأساسية بشكل منفصل
-          pip install numpy==1.24.0
-          pip install pillow==10.2.0
-          pip install imageio==2.31.5
-          pip install imageio-ffmpeg==0.4.9
-          
-          # تثبيت moviepy أولاً
-          pip install moviepy==1.0.3
-          
-          # ثم باقي المكتبات
-          pip install google-genai==0.3.0
-          pip install google-api-python-client==2.108.0
-          pip install google-auth-oauthlib==1.1.0
-          pip install yt-dlp==2023.12.30
-          pip install opencv-python-headless==4.8.1.78
+          pip install --upgrade pip
+          pip install google-genai google-api-python-client google-auth-oauthlib
+          pip install yt-dlp moviepy opencv-python-headless pillow
       
-      - name: Test imports
+      - name: Create config from secrets
         run: |
-          echo "🔍 اختبار استيراد المكتبات..."
-          python -c "
-          import sys
+          mkdir -p config_grit_gold
           
-          print('1. اختبار google-genai...')
-          try:
-              import google.genai as genai
-              print('   ✅ google.genai - OK')
-          except ImportError as e:
-              print(f'   ❌ خطأ: {e}')
+          # إنشاء ملف Gemini key
+          if [ -n "$GEMINI_API_KEY" ]; then
+            echo "$GEMINI_API_KEY" > config_grit_gold/gemini_key.txt
+            echo "✅ تم إنشاء ملف gemini_key.txt"
+          else
+            echo "⚠️ GEMINI_API_KEY غير موجود"
+          fi
           
-          print('2. اختبار moviepy...')
-          try:
-              from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-              print('   ✅ moviepy.editor - OK')
-          except ImportError as e:
-              print(f'   ❌ خطأ: {e}')
+          # إنشاء ملف youtube credentials
+          if [ -n "$YOUTUBE_CREDENTIALS" ]; then
+            echo "$YOUTUBE_CREDENTIALS" > config_grit_gold/youtube_credentials.json
+            echo "✅ تم إنشاء ملف youtube_credentials.json"
+          else
+            echo "⚠️ YOUTUBE_CREDENTIALS غير موجود"
+          fi
           
-          print('3. اختبار yt-dlp...')
-          try:
-              import yt_dlp
-              print('   ✅ yt-dlp - OK')
-          except ImportError as e:
-              print(f'   ❌ خطأ: {e}')
-          
-          print('4. اختبار opencv...')
-          try:
-              import cv2
-              print(f'   ✅ opencv - OK (الإصدار: {cv2.__version__})')
-          except ImportError as e:
-              print(f'   ❌ خطأ: {e}')
-          
-          print('5. اختبار PIL...')
-          try:
-              from PIL import Image
-              print(f'   ✅ PIL - OK (الإصدار: {Image.__version__})')
-          except ImportError as e:
-              print(f'   ❌ خطأ: {e}')
-          
-          print('✅ انتهى اختبار المكتبات')
-          "
-      
-      - name: Create necessary directories
-        run: |
-          mkdir -p config_grit_gold output_grit_gold temp_grit_gold logs_grit_gold database_grit_gold
-      
-      - name: Run Bot (Single Cycle)
+          # إنشاء باقي المجلدات
+          mkdir -p output_grit_gold temp_grit_gold logs_grit_gold database_grit_gold
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YOUTUBE_CREDENTIALS: ${{ secrets.YOUTUBE_CREDENTIALS }}
+      
+      - name: Run Bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YOUTUBE_CREDENTIALS: ${{ secrets.YOUTUBE_CREDENTIALS }}
         run: |
           echo "🚀 بدء تشغيل البوت..."
-          python -c "
-          # نسخة مبسطة للتشغيل الأولي
-          print('🏭 Grit & Gold Factory - Test Mode')
-          print('🔧 جاري التحقق من الإعدادات...')
-          
-          import os
-          import sys
-          
-          # إضافة مسار للوحدات
-          sys.path.append('.')
-          
-          try:
-              # استيراد الفئات الأساسية
-              print('📦 استيراد الفئات...')
-              exec(open('deepseek_python_20260127_288de0.py').read())
-              print('✅ جميع الفئات جاهزة')
-          except Exception as e:
-              print(f'❌ خطأ في الاستيراد: {e}')
-              import traceback
-              traceback.print_exc()
-          "
-          
-          # تشغيل الدورة الأولى
-          echo "1" | python deepseek_python_20260127_288de0.py
+          python deepseek_python_20260127_288de0.py --auto
