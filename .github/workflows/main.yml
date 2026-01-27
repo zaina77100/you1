@@ -1,32 +1,46 @@
 name: Grit & Gold Auto-Uploader
 on:
   schedule:
-    - cron: '0 */4 * * *' # يعمل كل 4 ساعات تلقائياً
-  workflow_dispatch: # يسمح لك بتشغيله يدوياً
+    - cron: '0 */4 * * *'  # يعمل كل 4 ساعات تلقائياً
+  workflow_dispatch:  # يسمح لك بتشغيله يدوياً
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
     steps:
       - uses: actions/checkout@v3
       
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'  # ⬅️ رفع إلى 3.10
+          python-version: '3.11'  # ⬅️ Python 3.11
       
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg libsm6 libxext6 libgl1-mesa-glx
       
       - name: Install Python dependencies
         run: |
-          pip install google-genai google-api-python-client google-auth-oauthlib yt-dlp opencv-python-headless pillow moviepy
-          # تثبيت whisper إذا كان متوفراً
-          pip install openai-whisper || echo "Whisper installation failed, continuing..."
-          # تثبيت mediapipe إذا كان متوفراً
-          pip install mediapipe || echo "Mediapipe installation failed, continuing..."
+          pip install --upgrade pip setuptools wheel
+          pip install google-genai
+          pip install google-api-python-client
+          pip install google-auth-oauthlib
+          pip install yt-dlp
+          pip install opencv-python-headless==4.8.1.78  # إصدار محدد لتجنب المشاكل
+          pip install pillow
+          pip install moviepy==1.0.3
+          pip install imageio==2.31.5  # مطلوب لـ moviepy
+          pip install imageio-ffmpeg
+          pip install numpy
+      
+      - name: Install optional dependencies
+        continue-on-error: true  # ⬅️ لا تتوقف إذا فشل تثبيت هذه
+        run: |
+          pip install openai-whisper
+          pip install mediapipe
       
       - name: Create necessary directories
         run: |
@@ -35,4 +49,24 @@ jobs:
       - name: Run Bot (Single Cycle)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python deepseek_python_20260127_288de0.py <<< "1"
+        run: |
+          python -c "
+          import sys
+          try:
+              # اختبار استيراد جميع المكتبات
+              import google.genai
+              from googleapiclient.discovery import build
+              from googleapiclient.http import MediaFileUpload
+              from google_auth_oauthlib.flow import InstalledAppFlow
+              from google.auth.transport.requests import Request
+              import yt_dlp
+              import cv2
+              import numpy as np
+              from PIL import Image
+              from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+              print('✅ جميع المكتبات مثبتة بنجاح')
+          except ImportError as e:
+              print(f'❌ خطأ في الاستيراد: {e}')
+              sys.exit(1)
+          "
+          python deepseek_python_20260127_288de0.py <<< "1"
