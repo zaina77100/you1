@@ -1,25 +1,123 @@
 name: Grit & Gold Auto-Uploader
 on:
   schedule:
-    - cron: '0 */4 * * *' # يعمل كل 4 ساعات تلقائياً
-  workflow_dispatch: # يسمح لك بتشغيله يدوياً
+    - cron: '0 */4 * * *'  # يعمل كل 4 ساعات تلقائياً
+  workflow_dispatch:  # يسمح لك بتشغيله يدوياً
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
     steps:
       - uses: actions/checkout@v3
-      - name: Set up Python
+      
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-      - name: Install dependencies
+          python-version: '3.10'
+      
+      - name: Install system dependencies
         run: |
-          pip install google-generativeai google-api-python-client google-auth-oauthlib yt-dlp opencv-python moviepy
-      - name: Run Bot
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg wget
+          # المكتبات المطلوبة لـ OpenCV
+          sudo apt-get install -y libsm6 libxext6 libxrender-dev libglib2.0-0
+      
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel
+          
+          # تثبيت المكتبات الأساسية بشكل منفصل
+          pip install numpy==1.24.0
+          pip install pillow==10.2.0
+          pip install imageio==2.31.5
+          pip install imageio-ffmpeg==0.4.9
+          
+          # تثبيت moviepy أولاً
+          pip install moviepy==1.0.3
+          
+          # ثم باقي المكتبات
+          pip install google-genai==0.3.0
+          pip install google-api-python-client==2.108.0
+          pip install google-auth-oauthlib==1.1.0
+          pip install yt-dlp==2023.12.30
+          pip install opencv-python-headless==4.8.1.78
+      
+      - name: Test imports
+        run: |
+          echo "🔍 اختبار استيراد المكتبات..."
+          python -c "
+          import sys
+          
+          print('1. اختبار google-genai...')
+          try:
+              import google.genai as genai
+              print('   ✅ google.genai - OK')
+          except ImportError as e:
+              print(f'   ❌ خطأ: {e}')
+          
+          print('2. اختبار moviepy...')
+          try:
+              from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
+              print('   ✅ moviepy.editor - OK')
+          except ImportError as e:
+              print(f'   ❌ خطأ: {e}')
+          
+          print('3. اختبار yt-dlp...')
+          try:
+              import yt_dlp
+              print('   ✅ yt-dlp - OK')
+          except ImportError as e:
+              print(f'   ❌ خطأ: {e}')
+          
+          print('4. اختبار opencv...')
+          try:
+              import cv2
+              print(f'   ✅ opencv - OK (الإصدار: {cv2.__version__})')
+          except ImportError as e:
+              print(f'   ❌ خطأ: {e}')
+          
+          print('5. اختبار PIL...')
+          try:
+              from PIL import Image
+              print(f'   ✅ PIL - OK (الإصدار: {Image.__version__})')
+          except ImportError as e:
+              print(f'   ❌ خطأ: {e}')
+          
+          print('✅ انتهى اختبار المكتبات')
+          "
+      
+      - name: Create necessary directories
+        run: |
+          mkdir -p config_grit_gold output_grit_gold temp_grit_gold logs_grit_gold database_grit_gold
+      
+      - name: Run Bot (Single Cycle)
         env:
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python deepseek_python_20260127_288de0.py
+        run: |
+          echo "🚀 بدء تشغيل البوت..."
+          python -c "
+          # نسخة مبسطة للتشغيل الأولي
+          print('🏭 Grit & Gold Factory - Test Mode')
+          print('🔧 جاري التحقق من الإعدادات...')
+          
+          import os
+          import sys
+          
+          # إضافة مسار للوحدات
+          sys.path.append('.')
+          
+          try:
+              # استيراد الفئات الأساسية
+              print('📦 استيراد الفئات...')
+              exec(open('deepseek_python_20260127_288de0.py').read())
+              print('✅ جميع الفئات جاهزة')
+          except Exception as e:
+              print(f'❌ خطأ في الاستيراد: {e}')
+              import traceback
+              traceback.print_exc()
+          "
+          
+          # تشغيل الدورة الأولى
+          echo "1" | python deepseek_python_20260127_288de0.py
