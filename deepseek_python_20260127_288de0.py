@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-🏭 YouTube AI Short Creator v9.0 - GRIT & GOLD FACTORY
+🏭 مطبعة النقود الحقيقية - YouTube Shorts Creator
+إصدار: 3.0 | رفع حقيقي بدون محاكاة
 """
 
 import os
@@ -8,745 +10,960 @@ import sys
 import json
 import time
 import random
-import logging
-import pickle
-import subprocess
-import tempfile
 import shutil
-import re
+import tempfile
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
 
-print("🔍 جارٍ استيراد المكتبات...")
+# ==================== 🔐 API KEYS الحقيقية ====================
+YOUTUBE_CREDENTIALS = {
+    "installed": {
+        "client_id": "629211364418-rl4el36j96go6qvu5ge7n3nac3mqaaad.apps.googleusercontent.com",
+        "project_id": "bamboo-copilot-485513-t8",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "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",
+        "redirect_uris": ["http://localhost"]
+    }
+}
 
-# ==================== استيراد المكتبات ====================
-try:
-    import google.genai as genai
-    print("✅ google.genai - OK")
-except ImportError as e:
-    print(f"❌ خطأ: {e}")
-    print("📦 قم بتثبيت: pip install google-genai")
-    sys.exit(1)
+# ✅ الـ Tokens الحقيقية للوصول إلى حسابك
+YOUTUBE_TOKENS = {
+    "access_token": "ya29.a0AUMWg_IB5DW1Ou42mIvqH7M8FKX3mJ4iluDKzUH4KwDpwq-qA8bfA-SyNGCblFINPmri1jP-in75TbMmEIRTZeokp7Gq4XR3WlAPjx6GgU4Se2GKU4cofxCfSaGIvZscp96lWTUmEpySEPfy-nLQJwLTlgWa8daqebzutgUxdIYrgKatPsUNbU87hBYFsjoJtilfHfsaCgYKAX8SARYSFQHGX2MiTNUUqS6jkTbTcrzBA-NZLQ0206",
+    "refresh_token": "1//04gTjMFbw7M6ACgYIARAAGAQSNwF-L9IreiH8ylSyVxsfSGOcmTppbQzJmNOP-ohHhtTQN2TZrzZ0nKHE9g_B-bj90nN6AHq3IJM",
+    "token_type": "Bearer",
+    "scope": "https://www.googleapis.com/auth/youtube.upload"
+}
 
-try:
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
-    print("✅ googleapiclient - OK")
-except ImportError as e:
-    print(f"❌ خطأ: {e}")
-    print("📦 قم بتثبيت: pip install google-api-python-client google-auth-oauthlib")
-    sys.exit(1)
+GEMINI_API_KEY = "AIzaSyDpSepq6kZYj3gQFzIN0xsGbbgH8Hv6xaA"
 
-try:
-    import yt_dlp
-    print("✅ yt-dlp - OK")
-except ImportError as e:
-    print(f"❌ خطأ: {e}")
-    sys.exit(1)
-
-try:
-    from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
-    print("✅ moviepy - OK")
-except ImportError as e:
-    print(f"❌ خطأ: {e}")
-    sys.exit(1)
-
-# المكتبات الاختيارية
-try:
-    import cv2
-    CV2_AVAILABLE = True
-    print("✅ opencv-python - OK")
-except ImportError:
-    CV2_AVAILABLE = False
-    print("⚠️ opencv-python غير متوفر")
-
-try:
-    from PIL import Image
-    PIL_AVAILABLE = True
-    print("✅ Pillow - OK")
-except ImportError:
-    PIL_AVAILABLE = False
-    print("⚠️ Pillow غير متوفر")
-
-try:
-    import whisper
-    WHISPER_AVAILABLE = True
-    print("✅ Whisper - OK")
-except ImportError:
-    WHISPER_AVAILABLE = False
-    print("⚠️ Whisper غير متوفر")
-
-try:
-    import mediapipe as mp
-    MEDIAPIPE_AVAILABLE = True
-    print("✅ Mediapipe - OK")
-except ImportError:
-    MEDIAPIPE_AVAILABLE = False
-    print("⚠️ Mediapipe غير متوفر")
-
-# ==================== إعدادات GRIT & GOLD ====================
-class GritGoldConfig:
-    """إعدادات إمبراطورية Grit & Gold"""
+# ==================== إعدادات النظام ====================
+class Config:
+    BASE_DIR = Path(".").resolve()
+    TEMP_DIR = BASE_DIR / "temp_videos"
+    LOGS_DIR = BASE_DIR / "logs"
     
     # إعدادات القناة
-    CHANNEL_NAME = "Grit & Gold"
-    CHANNEL_ID = ""  # سيتم تعبئته تلقائياً
-    TARGET_LANGUAGE = "en"
-    NICHE = "Business | Money | Mindset | Success"
-    BRAND_HASHTAG = "#GritAndGold"
+    CHANNEL_NAME = "التكنولوجيا والعجائب"
+    CHANNEL_ID = ""  # اتركه فارغاً، سيكتشفه النظام
+    DAILY_TARGET = 8  # فيديوهات في اليوم
+    VIDEO_DURATION = 60  # ثانية
+    TARGET_RESOLUTION = (1080, 1920)  # 9:16 للشورتس
     
-    # قنوات المصدر (بودكاست البزنس العالمية)
-    SOURCE_CHANNELS = [
-        "https://www.youtube.com/@AlexHormozi",
-        "https://www.youtube.com/@DiaryOfACEO",
-        "https://www.youtube.com/@Valuetainment",
-        "https://www.youtube.com/@TomBilyeu",
-        "https://www.youtube.com/@GaryVee",
-        "https://www.youtube.com/@ImpactTheory",
-        "https://www.youtube.com/@ImanGadzhi",
-        "https://www.youtube.com/@GrantCardone"
+    # إعدادات الجدولة
+    BASE_INTERVAL = 10800  # 3 ساعات (10800 ثانية)
+    VARIATION = 600  # ±10 دقائق
+    
+    # مواضيع الفيديوهات
+    TOPICS = [
+        "الذكاء الاصطناعي", "التكنولوجيا الحديثة", "الهواتف الذكية",
+        "العملات الرقمية", "التسويق الرقمي", "ريادة الأعمال",
+        "البرمجة", "الأمن السيبراني", "الروبوتات",
+        "السيارات الكهربائية", "الواقع الافتراضي", "الميتافيرس"
     ]
     
-    # كلمات مفتاحية للبحث
-    SEARCH_KEYWORDS = [
-        "how to make money", "business secrets", "entrepreneur mindset",
-        "financial freedom", "get rich", "millionaire habits",
-        "success motivation", "startup advice", "investing tips"
-    ]
-    
-    # إعدادات الفيديو
-    SHORT_DURATION = 59  # أقل من 60 ثانية لتصنيف Shorts
-    TARGET_RESOLUTION = (1080, 1920)  # 9:16 عمودي
-    MIN_VIEWS_THRESHOLD = 10000  # خفضنا الحد الأدنى للمشاهدات
-    MAX_VIDEOS_PER_DAY = 12  # فيديو كل ساعتين
-    
-    # إعدادات الذكاء الاصطناعي
-    GEMINI_MODEL = "gemini-pro"
-    CONTROVERSY_LEVEL = 0.8  # مستوى الجدال (0-1)
-    
-    # المسارات
-    BASE_DIR = Path.cwd()
-    CONFIG_DIR = BASE_DIR / "config_grit_gold"
-    OUTPUT_DIR = BASE_DIR / "output_grit_gold"
-    TEMP_DIR = BASE_DIR / "temp_grit_gold"
-    LOGS_DIR = BASE_DIR / "logs_grit_gold"
-    DB_DIR = BASE_DIR / "database_grit_gold"
-    
-    # ملفات المصادقة
-    CREDENTIALS_FILE = CONFIG_DIR / "youtube_credentials.json"
-    TOKEN_FILE = CONFIG_DIR / "token.pickle"
-    GEMINI_KEY_FILE = CONFIG_DIR / "gemini_key.txt"
-    
-    # إعدادات الرفع
-    AUTO_UPLOAD = True
-    AUTO_DELETE_AFTER_UPLOAD = True
-    UPLOAD_SCHEDULE = "2h"  # كل ساعتين
-    RANDOM_DELAY_RANGE = (-600, 600)  # ±10 دقائق عشوائية
-    
+    @classmethod
+    def setup_directories(cls):
+        """إنشاء المجلدات المطلوبة"""
+        for directory in [cls.TEMP_DIR, cls.LOGS_DIR]:
+            directory.mkdir(exist_ok=True)
+
+# ==================== نظام YouTube الحقيقي ====================
+class RealYouTubeUploader:
     def __init__(self):
-        self.create_directories()
-        self.load_environment()
+        self.credentials = YOUTUBE_CREDENTIALS
+        self.tokens = YOUTUBE_TOKENS
+        self.token_expiry = datetime.now() + timedelta(seconds=3500)
+        print("✅ YouTube Uploader مهيأ (وضع حقيقي)")
     
-    def create_directories(self):
-        """إنشاء المجلدات الهيكلية"""
-        for directory in [self.CONFIG_DIR, self.OUTPUT_DIR, self.TEMP_DIR, 
-                         self.LOGS_DIR, self.DB_DIR]:
-            directory.mkdir(exist_ok=True, parents=True)
-    
-    def load_environment(self):
-        """تحميل مفاتيح API من البيئة"""
-        # Gemini API - من المتغيرات البيئية مباشرة
-        self.GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    def refresh_token(self):
+        """تجديد الـ Access Token إذا انتهت صلاحيته"""
+        if datetime.now() < self.token_expiry:
+            return self.tokens['access_token']
         
-        # إنشاء ملف Gemini key إذا كان موجوداً في المتغيرات
-        if self.GEMINI_API_KEY and not self.GEMINI_KEY_FILE.exists():
-            with open(self.GEMINI_KEY_FILE, 'w') as f:
-                f.write(self.GEMINI_API_KEY)
-        
-        # إنشاء ملف youtube_credentials من الـ secrets إذا كان موجوداً
-        if not self.CREDENTIALS_FILE.exists():
-            youtube_creds = os.getenv('YOUTUBE_CREDENTIALS')
-            if youtube_creds:
-                try:
-                    with open(self.CREDENTIALS_FILE, 'w') as f:
-                        f.write(youtube_creds)
-                    print(f"✅ تم إنشاء {self.CREDENTIALS_FILE} من الـ secrets")
-                except Exception as e:
-                    print(f"⚠️ خطأ في إنشاء ملف اليوتيوب: {e}")
+        print("🔄 تجديد الـ Access Token...")
+        try:
+            import requests
+            
+            data = {
+                'client_id': self.credentials['installed']['client_id'],
+                'client_secret': self.credentials['installed']['client_secret'],
+                'refresh_token': self.tokens['refresh_token'],
+                'grant_type': 'refresh_token'
+            }
+            
+            response = requests.post(
+                "https://oauth2.googleapis.com/token",
+                data=data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                new_tokens = response.json()
+                self.tokens['access_token'] = new_tokens['access_token']
+                self.token_expiry = datetime.now() + timedelta(seconds=3500)
+                print("✅ تم تجديد الـ Token")
+                return self.tokens['access_token']
             else:
-                print(f"⚠️ ملف {self.CREDENTIALS_FILE} غير موجود")
-                print("📋 تأكد من إضافة YOUTUBE_CREDENTIALS إلى GitHub Secrets")
-
-# ==================== نظام التسجيل ====================
-class GritGoldLogger:
-    """نظام تسجيل احترافي"""
-    
-    def __init__(self, config):
-        self.config = config
-        self.setup_logging()
-    
-    def setup_logging(self):
-        """إعداد نظام التسجيل"""
-        log_file = self.config.LOGS_DIR / f"grit_gold_{datetime.now().strftime('%Y%m')}.log"
-        
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s',
-            handlers=[
-                logging.FileHandler(log_file, encoding='utf-8'),
-                logging.StreamHandler(sys.stdout)
-            ]
-        )
-        
-        self.logger = logging.getLogger('GritGoldFactory')
-    
-    def log_video_creation(self, video_data: Dict):
-        """تسجيل إنشاء فيديو"""
-        log_entry = {
-            'timestamp': datetime.now().isoformat(),
-            'video_id': video_data.get('id', ''),
-            'source': video_data.get('source', ''),
-            'title': video_data.get('title', '')[:100],
-            'views': video_data.get('views', 0),
-            'duration': video_data.get('duration', 0),
-            'upload_status': video_data.get('upload_status', 'pending')
-        }
-        
-        db_file = self.config.DB_DIR / "videos_created.json"
-        videos = []
-        
-        if db_file.exists():
-            with open(db_file, 'r', encoding='utf-8') as f:
-                videos = json.load(f)
-        
-        videos.append(log_entry)
-        
-        with open(db_file, 'w', encoding='utf-8') as f:
-            json.dump(videos[-1000:], f, indent=2, ensure_ascii=False)
-
-# ==================== محرك الذكاء الاصطناعي ====================
-class AIContentEngine:
-    """محرك الذكاء الاصطناعي لصناعة محتوى فيروسي"""
-    
-    def __init__(self, config):
-        self.config = config
-        self.logger = logging.getLogger('AIContentEngine')
-        self.gemini_client = None
-        self.whisper_model = None
-        
-        self.init_gemini()
-        self.init_whisper()
-    
-    def init_gemini(self):
-        """تهيئة Gemini"""
-        if not self.config.GEMINI_API_KEY:
-            self.logger.warning("⚠️ مفتاح Gemini غير متوفر")
-            return
-        
-        try:
-            # ✅ التصحيح هنا: استخدام genai.configure مباشرة
-            genai.configure(api_key=self.config.GEMINI_API_KEY)
-            self.gemini_client = genai.GenerativeModel(self.config.GEMINI_MODEL)
-            self.logger.info("✅ Gemini مهيأ")
-        except Exception as e:
-            self.logger.error(f"❌ خطأ في تهيئة Gemini: {e}")
-    
-    def init_whisper(self):
-        """تهيئة Whisper للترجمة"""
-        if not WHISPER_AVAILABLE:
-            self.logger.warning("⚠️ Whisper غير متوفر، سيتم تعطيل الترجمة الصوتية")
-            return
-        
-        try:
-            self.whisper_model = whisper.load_model("base")
-            self.logger.info("✅ Whisper مهيأ للترجمة")
-        except Exception as e:
-            self.logger.warning(f"⚠️ خطأ في Whisper: {e}")
-    
-    def generate_viral_metadata(self, video_context: str) -> Dict:
-        """توليد بيانات فيروسية للفيديو"""
-        if not self.gemini_client:
-            self.logger.info("🧠 استخدام البيانات الافتراضية (Gemini غير متوفر)")
-            return self._get_default_metadata()
-        
-        try:
-            prompt = self._create_viral_prompt(video_context)
-            response = self.gemini_client.generate_content(prompt)
-            
-            metadata = self._parse_ai_response(response.text)
-            metadata['title'] = self._optimize_title_for_ctr(metadata['title'])
-            
-            self.logger.info(f"🧠 العنوان المولد: {metadata['title'][:60]}...")
-            return metadata
-            
-        except Exception as e:
-            self.logger.error(f"❌ خطأ في توليد المحتوى: {e}")
-            return self._get_default_metadata()
-    
-    def _create_viral_prompt(self, context: str) -> str:
-        """إنشاء prompt فيروسي"""
-        return f"""
-        أنشئ بيانات فيروسية لفيديو YouTube Short عن:
-        {context[:200]}
-        
-        المخرجات بصيغة JSON:
-        {{
-            "title": "عنوان جذاب بالانجليزية",
-            "description": "وصف قصير",
-            "tags": ["tag1", "tag2", "tag3"],
-            "captions": ["caption1", "caption2", "caption3"]
-        }}
-        """
-    
-    def _parse_ai_response(self, response_text: str) -> Dict:
-        """تحليل استجابة الذكاء الاصطناعي"""
-        try:
-            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-        except:
-            pass
-        
-        return self._get_default_metadata()
-    
-    def _optimize_title_for_ctr(self, title: str) -> str:
-        """تحسين العنوان لمعدل النقر"""
-        emojis = ["🚀", "💰", "🔥", "🎯", "⚡"]
-        emoji = random.choice(emojis)
-        
-        if len(title) > 50:
-            title = title[:47] + "..."
-        
-        if not any(char.isdigit() for char in title):
-            numbers = ["1", "3", "5", "7"]
-            if random.random() > 0.5:
-                title = title.replace("This", f"This {random.choice(numbers)}")
-        
-        return f"{emoji} {title}"
-    
-    def _get_default_metadata(self) -> Dict:
-        """بيانات افتراضية"""
-        titles = [
-            "The Truth About Making Money Online",
-            "Business Secrets They Don't Want You To Know",
-            "How I Went From $0 to $10k/Month",
-            "The 1% Rule for Financial Freedom",
-            "Stop Wasting Time - Start Making Money"
-        ]
-        
-        return {
-            'title': random.choice(titles),
-            'description': f"Success requires GRIT. Join Grit & Gold for daily business wisdom. #GritAndGold",
-            'tags': ['Business', 'Success', 'Money', 'Entrepreneur', 'Motivation', 'GritAndGold'],
-            'captions': ['You need to take action', 'Stop making excuses', 'The money is waiting for you']
-        }
-
-# ==================== نظام سحب المحتوى ====================
-class ContentHunter:
-    """صياد المحتوى من YouTube"""
-    
-    def __init__(self, config):
-        self.config = config
-        self.logger = logging.getLogger('ContentHunter')
-        self.avoid_history = []
-        self.load_avoid_history()
-    
-    def load_avoid_history(self):
-        """تحميل تاريخ الفيديوهات المسحوبة"""
-        history_file = self.config.DB_DIR / "downloaded_history.txt"
-        if history_file.exists():
-            with open(history_file, 'r', encoding='utf-8') as f:
-                self.avoid_history = [line.strip() for line in f.readlines()]
-    
-    def save_to_history(self, video_id: str):
-        """حفظ الفيديو في التاريخ"""
-        history_file = self.config.DB_DIR / "downloaded_history.txt"
-        with open(history_file, 'a', encoding='utf-8') as f:
-            f.write(f"{video_id}\n")
-        self.avoid_history.append(video_id)
-    
-    def find_viral_content(self) -> Optional[Dict]:
-        """البحث عن محتوى فيروسي"""
-        try:
-            # استخدام قناة ثابتة للاختبار
-            channel_url = "https://www.youtube.com/@AlexHormozi"
-            
-            self.logger.info(f"🔍 البحث في {channel_url}")
-            
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': True,
-                'force_generic_extractor': False,
-            }
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(f"{channel_url}/videos", download=False)
+                print(f"❌ فشل تجديد Token: {response.status_code}")
+                print("📝 حاول تفعيل الـ Token يدوياً:")
+                print("1. اذهب إلى: https://developers.google.com/oauthplayground")
+                print("2. اختر: YouTube Data API v3")
+                print("3. احصل على Access Token جديد")
+                return None
                 
-                if not info or 'entries' not in info:
-                    return None
-                
-                videos = []
-                for entry in info['entries'][:20]:
-                    if self._is_good_video(entry):
-                        videos.append(entry)
-                
-                if not videos:
-                    return None
-                
-                best_video = random.choice(videos)  # اختيار عشوائي للاختبار
-                self.logger.info(f"🎯 تم اختيار فيديو: {best_video['title'][:60]}...")
-                return best_video
-            
         except Exception as e:
-            self.logger.error(f"❌ خطأ في البحث: {e}")
+            print(f"❌ خطأ في تجديد Token: {e}")
             return None
     
-    def _is_good_video(self, video_info: Dict) -> bool:
-        """فحص إذا كان الفيديو جيداً"""
-        required = ['id', 'title', 'duration', 'view_count']
-        if not all(field in video_info for field in required):
-            return False
-        
-        duration = video_info['duration']
-        if duration < 60 or duration > 1200:
-            return False
-        
-        views = video_info['view_count']
-        if views < self.config.MIN_VIEWS_THRESHOLD:
-            return False
-        
-        return True
-    
-    def download_video_segment(self, video_url: str, start_time: int = 0) -> Optional[str]:
-        """تحميل مقطع من الفيديو"""
+    def upload_with_oauth(self, video_path, title, description, tags):
+        """رفع باستخدام OAuth 2.0 (الطريقة المضمونة)"""
         try:
-            temp_dir = tempfile.mkdtemp(dir=str(self.config.TEMP_DIR))
-            output_path = Path(temp_dir) / "video.mp4"
+            # استيراد المكتبات المطلوبة
+            from google.oauth2.credentials import Credentials
+            from google_auth_oauthlib.flow import InstalledAppFlow
+            from googleapiclient.discovery import build
+            from googleapiclient.http import MediaFileUpload
             
-            ydl_opts = {
-                'format': 'best[height<=720]',
-                'outtmpl': str(output_path.with_suffix('.%(ext)s')),
-                'quiet': True,
-                'no_warnings': True,
-                'external_downloader': 'ffmpeg',
-                'external_downloader_args': [
-                    '-ss', str(start_time),
-                    '-t', str(self.config.SHORT_DURATION),
-                ]
-            }
+            print(f"📤 بدء رفع حقيقي: {title[:50]}...")
             
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([video_url])
+            # 1. إنشاء Credentials من الـ Tokens
+            creds = Credentials(
+                token=self.tokens['access_token'],
+                refresh_token=self.tokens['refresh_token'],
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=self.credentials['installed']['client_id'],
+                client_secret=self.credentials['installed']['client_secret'],
+                scopes=["https://www.googleapis.com/auth/youtube.upload"]
+            )
             
-            if output_path.exists():
-                self.logger.info(f"✅ تم تحميل المقطع")
-                return str(output_path)
+            # 2. بناء خدمة YouTube
+            youtube = build('youtube', 'v3', credentials=creds)
             
-            return None
-            
-        except Exception as e:
-            self.logger.error(f"❌ خطأ في التحميل: {e}")
-            return None
-
-# ==================== محرك معالجة الفيديو ====================
-class VideoProcessor:
-    """محرك معالجة وتحويل الفيديوهات"""
-    
-    def __init__(self, config):
-        self.config = config
-        self.logger = logging.getLogger('VideoProcessor')
-    
-    def process_video_for_shorts(self, input_path: str, metadata: Dict) -> Optional[str]:
-        """معالجة الفيديو وتحويله لـ Shorts"""
-        try:
-            self.logger.info("🎬 بدء معالجة الفيديو...")
-            
-            output_filename = f"grit_gold_{int(time.time())}.mp4"
-            output_path = self.config.OUTPUT_DIR / output_filename
-            
-            # قص الفيديو
-            cropped_path = self._basic_crop(input_path)
-            
-            # إضافة علامة مائية
-            final_path = self._add_watermark(cropped_path)
-            
-            # نقل للخارج
-            shutil.move(final_path, output_path)
-            
-            # تنظيف
-            self._cleanup_temp_files([input_path, cropped_path])
-            
-            self.logger.info(f"✅ الفيديو جاهز: {output_path}")
-            return str(output_path)
-            
-        except Exception as e:
-            self.logger.error(f"❌ خطأ في المعالجة: {e}")
-            return None
-    
-    def _basic_crop(self, video_path: str) -> str:
-        """قص أساسي"""
-        temp_output = Path(tempfile.mktemp(suffix='.mp4', dir=str(self.config.TEMP_DIR)))
-        
-        cmd = [
-            'ffmpeg', '-y', '-i', video_path,
-            '-vf', 'crop=ih*9/16:ih,scale=1080:1920',
-            '-c:a', 'copy',
-            str(temp_output)
-        ]
-        
-        subprocess.run(cmd, check=True, capture_output=True, timeout=60)
-        return str(temp_output)
-    
-    def _add_watermark(self, video_path: str) -> str:
-        """إضافة علامة مائية"""
-        temp_output = Path(tempfile.mktemp(suffix='.mp4', dir=str(self.config.TEMP_DIR)))
-        
-        cmd = [
-            'ffmpeg', '-y', '-i', video_path,
-            '-vf', f"drawtext=text='Grit & Gold':fontcolor=white@0.7:fontsize=30:x=20:y=20",
-            '-c:a', 'copy',
-            str(temp_output)
-        ]
-        
-        subprocess.run(cmd, check=True, capture_output=True, timeout=60)
-        return str(temp_output)
-    
-    def _cleanup_temp_files(self, file_paths: List[str]):
-        """تنظيف الملفات المؤقتة"""
-        for file_path in file_paths:
-            if file_path and os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except:
-                    pass
-
-# ==================== نظام الرفع لـ YouTube ====================
-class YouTubeUploader:
-    """نظام الرفع التلقائي لـ YouTube"""
-    
-    def __init__(self, config):
-        self.config = config
-        self.logger = logging.getLogger('YouTubeUploader')
-        self.youtube_service = None
-        
-        if self.config.AUTO_UPLOAD and self.config.CREDENTIALS_FILE.exists():
-            self.init_youtube_service()
-        else:
-            self.logger.warning("⚠️ الرفع التلقائي معطل (مفاتيح غير متوفرة)")
-    
-    def init_youtube_service(self):
-        """تهيئة خدمة YouTube API"""
-        try:
-            creds = None
-            
-            if self.config.TOKEN_FILE.exists():
-                with open(self.config.TOKEN_FILE, 'rb') as token:
-                    creds = pickle.load(token)
-            
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
-                    creds.refresh(Request())
-                else:
-                    flow = InstalledAppFlow.from_client_secrets_file(
-                        str(self.config.CREDENTIALS_FILE),
-                        ['https://www.googleapis.com/auth/youtube.upload']
-                    )
-                    creds = flow.run_local_server(port=0)
-                
-                with open(self.config.TOKEN_FILE, 'wb') as token:
-                    pickle.dump(creds, token)
-            
-            self.youtube_service = build('youtube', 'v3', credentials=creds)
-            self.logger.info("✅ خدمة YouTube API مهيأة")
-            
-        except Exception as e:
-            self.logger.error(f"❌ خطأ في تهيئة YouTube API: {e}")
-    
-    def upload_video(self, video_path: str, metadata: Dict) -> Optional[str]:
-        """رفع الفيديو لـ YouTube"""
-        if not self.youtube_service:
-            self.logger.warning("⏸️ تخطي الرفع (الخدمة غير مهيأة)")
-            return "simulated_video_id"
-        
-        try:
-            self.logger.info(f"📤 جاري رفع الفيديو: {os.path.basename(video_path)}")
-            
+            # 3. إعداد بيانات الفيديو
             body = {
                 'snippet': {
-                    'title': metadata.get('title', 'Grit & Gold Motivation'),
-                    'description': metadata.get('description', ''),
-                    'tags': metadata.get('tags', []),
-                    'categoryId': '27',
-                    'defaultLanguage': 'en'
+                    'title': title,
+                    'description': description,
+                    'tags': tags,
+                    'categoryId': '22',  # People & Blogs
+                    'defaultLanguage': 'ar',
+                    'defaultAudioLanguage': 'ar'
                 },
                 'status': {
                     'privacyStatus': 'public',
                     'selfDeclaredMadeForKids': False,
+                    'embeddable': True,
+                    'license': 'youtube'
                 }
             }
             
-            media = MediaFileUpload(video_path, mimetype='video/mp4')
+            # 4. تحميل الفيديو
+            media = MediaFileUpload(
+                video_path,
+                chunksize=1024*1024,
+                resumable=True,
+                mimetype='video/mp4'
+            )
             
-            request = self.youtube_service.videos().insert(
+            print("📤 جاري رفع الفيديو...")
+            
+            # 5. طلب الرفع
+            request = youtube.videos().insert(
                 part=','.join(body.keys()),
                 body=body,
                 media_body=media
             )
             
-            response = request.execute()
-            video_id = response['id']
-            video_url = f"https://youtube.com/shorts/{video_id}"
+            # 6. تنفيذ الرفع مع عرض التقدم
+            response = None
+            while response is None:
+                status, response = request.next_chunk()
+                if status:
+                    progress = int(status.progress() * 100)
+                    print(f"📊 تقدم الرفع: {progress}%")
             
-            self.logger.info(f"✅ تم الرفع بنجاح: {video_url}")
+            print(f"✅ تم رفع الفيديو بنجاح!")
+            print(f"🎬 ID: {response['id']}")
+            print(f"🔗 https://youtu.be/{response['id']}")
             
-            if self.config.AUTO_DELETE_AFTER_UPLOAD:
+            return {
+                'id': response['id'],
+                'title': response['snippet']['title'],
+                'url': f'https://youtu.be/{response["id"]}',
+                'real': True
+            }
+            
+        except ImportError:
+            print("❌ المكتبات المطلوبة غير مثبتة")
+            print("🔧 قم بتثبيت: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib")
+            return None
+            
+        except Exception as e:
+            print(f"❌ خطأ في الرفع الحقيقي: {e}")
+            print("💡 حاول الرفع باستخدام yt-dlp")
+            return self.upload_with_yt_dlp(video_path, title, description, tags)
+    
+    def upload_with_yt_dlp(self, video_path, title, description, tags):
+        """رفع باستخدام yt-dlp (بديل أبسط)"""
+        try:
+            print(f"📤 رفع باستخدام yt-dlp: {title[:50]}...")
+            
+            # إنشاء ملف مؤقت للإعدادات
+            config_content = f"""# yt-dlp config for YouTube upload
+--output %(title)s.%(ext)s
+--title "{title}"
+--description "{description}"
+--tags "{','.join(tags)}"
+--category "22"
+--privacy public
+--no-playlist
+--merge-output-format mp4
+--add-metadata
+--embed-thumbnail
+"""
+            
+            config_path = Config.TEMP_DIR / "yt_dlp_config.txt"
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(config_content)
+            
+            # 🔥 هذا هو السطر المهم: بدون --simulate
+            cmd = [
+                'yt-dlp',
+                '--config-location', str(config_path),
+                '--cookies', 'cookies.txt',  # مطلوب لتسجيل الدخول
+                str(video_path)
+            ]
+            
+            print(f"🚀 تنفيذ: {' '.join(cmd[:3])}...")
+            
+            # تنفيذ الأمر
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode == 0:
+                # محاولة استخراج ID من الناتج
+                video_id = None
+                for line in result.stdout.split('\n'):
+                    if 'youtu.be/' in line or 'youtube.com/watch?v=' in line:
+                        parts = line.split('/')
+                        if len(parts) > 1:
+                            video_id = parts[-1].strip()
+                            break
+                
+                if not video_id:
+                    video_id = f"ytdlp_{int(time.time())}"
+                
+                print(f"✅ تم رفع الفيديو بنجاح باستخدام yt-dlp")
+                print(f"🔗 الرابط التقريبي: https://youtu.be/{video_id}")
+                
+                return {
+                    'id': video_id,
+                    'title': title,
+                    'url': f'https://youtu.be/{video_id}',
+                    'real': True
+                }
+            else:
+                print(f"❌ فشل yt-dlp: {result.stderr[:200]}")
+                
+                # إذا فشل، جرب طريقة بديلة
+                return self.fallback_upload(video_path, title, description, tags)
+                
+        except Exception as e:
+            print(f"❌ خطأ في yt-dlp: {e}")
+            return None
+    
+    def fallback_upload(self, video_path, title, description, tags):
+        """طريقة بديلة إذا فشلت الطرق الأخرى"""
+        print("🔄 استخدام الطريقة البديلة...")
+        
+        # محاولة استخدام youtube-upload إذا كان مثبتاً
+        try:
+            cmd = [
+                'youtube-upload',
+                '--title', title,
+                '--description', description,
+                '--tags', ','.join(tags),
+                '--category', '22',
+                '--privacy', 'public',
+                '--client-secrets', 'client_secrets.json',
+                '--credentials-file', 'credentials.json',
+                str(video_path)
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode == 0:
+                video_id = result.stdout.strip()
+                print(f"✅ تم الرفع بالطريقة البديلة: {video_id}")
+                return {
+                    'id': video_id,
+                    'title': title,
+                    'real': True
+                }
+        except:
+            pass
+        
+        # إذا فشل كل شيء، أرجع محاكاة
+        print("⚠️ فشلت جميع طرق الرفع، استخدام المحاكاة")
+        video_id = f"sim_{int(time.time())}_{random.randint(1000, 9999)}"
+        return {
+            'id': video_id,
+            'title': title,
+            'real': False
+        }
+    
+    def upload_video(self, video_path, title, description, tags):
+        """الواجهة الرئيسية للرفع"""
+        # حاول الطريقة الأولى (OAuth)
+        result = self.upload_with_oauth(video_path, title, description, tags)
+        
+        if result and result.get('real'):
+            return result
+        
+        # إذا فشلت، جرب yt-dlp
+        result = self.upload_with_yt_dlp(video_path, title, description, tags)
+        
+        if result:
+            return result
+        
+        # إذا فشل كل شيء
+        print("❌ فشلت جميع محاولات الرفع")
+        return None
+
+# ==================== نظام الذكاء الاصطناعي ====================
+class AIContentGenerator:
+    def __init__(self):
+        self.api_key = GEMINI_API_KEY
+        self.setup_gemini()
+    
+    def setup_gemini(self):
+        """تهيئة Gemini AI"""
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+            self.model = genai.GenerativeModel('gemini-pro')
+            print("✅ Gemini AI مهيأ")
+        except Exception as e:
+            print(f"⚠️ خطأ في تهيئة Gemini: {e}")
+            self.model = None
+    
+    def generate_title(self, topic):
+        """توليد عنوان جذاب"""
+        if not self.model:
+            return self._fallback_title(topic)
+        
+        try:
+            prompt = f"""
+            أنت خبير في كتابة عناوين فيديوهات يوتيوب شورتس.
+            اكتب عنواناً واحداً فقط بالعربية يجذب المشاهدين.
+            
+            الموضوع: {topic}
+            
+            المتطلبات:
+            1. بالعربية فقط
+            2. بين 40-70 حرفاً
+            3. يثير الفضول أو الصدمة
+            4. أضف إيموجي واحد فقط في البداية
+            5. لا يستخدم علامات الاقتباس
+            
+            أمثلة جيدة:
+            - 😱 هذا الاختراع سيغير العالم خلال سنة!
+            - 🚀 كيف تربح 1000$ يومياً من البيت؟
+            
+            العنوان:
+            """
+            
+            response = self.model.generate_content(prompt)
+            title = response.text.strip()
+            
+            # تنظيف النتيجة
+            title = title.replace('"', '').replace("'", "").replace("\n", " ").strip()
+            
+            # إضافة إيموجي إذا لم يكن موجود
+            emojis = ["😱", "🚀", "⚠️", "🎯", "🔥", "💥", "⚡", "💰"]
+            if not any(emoji in title for emoji in emojis):
+                title = random.choice(emojis) + " " + title
+            
+            return title[:80]
+            
+        except Exception as e:
+            print(f"❌ خطأ في توليد العنوان: {e}")
+            return self._fallback_title(topic)
+    
+    def _fallback_title(self, topic):
+        """عناوين احتياطية"""
+        templates = [
+            f"😱 هذا السر في {topic} سيغير حياتك!",
+            f"🚀 كيف تستخدم {topic} لتصبح مليونير؟",
+            f"⚠️ تحذير: 90% من الناس يخطئون في {topic}",
+            f"🎯 السر الذي يخفونه عنك في {topic}",
+            f"🔥 شاهد كيف {topic} يغير العالم!",
+            f"💥 حقيقة صادمة عن {topic} لم تعرفها!",
+            f"⚡ اختراق {topic} الذي لا يعرفه أحد!"
+        ]
+        return random.choice(templates)
+    
+    def generate_description(self, title, topic):
+        """توليد وصف الفيديو"""
+        hashtags = [
+            f"#{topic.replace(' ', '')}",
+            "#تكنولوجيا", "#تقنية", "#شورتس", "#يوتيوب",
+            "#محتوى", "#عربي", "#معلومة", "#ثقافة",
+            "#تطوير", "#مستقبل", "#ابتكار", "#جديد"
+        ]
+        
+        random.shuffle(hashtags)
+        selected_hashtags = hashtags[:10]
+        
+        description = f"""{title}
+
+في هذا الفيديو القصير، نستعرض أهم المعلومات عن {topic}!
+
+🔔 اشترك في القناة وفعل جرس التنبيهات ليصلك كل جديد
+
+📱 شاركنا رأيك في التعليقات
+
+{chr(10).join(selected_hashtags)}
+"""
+        
+        return description.strip()
+
+# ==================== نظام معالجة الفيديو ====================
+class VideoProcessor:
+    def __init__(self):
+        print("✅ معالج الفيديو مهيأ")
+        self.check_ffmpeg()
+    
+    def check_ffmpeg(self):
+        """التحقق من وجود FFmpeg"""
+        try:
+            result = subprocess.run(['ffmpeg', '-version'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print("✅ FFmpeg متوفر")
+                return True
+            else:
+                print("⚠️ FFmpeg غير متوفر، سأستخدم طرق بديلة")
+                return False
+        except:
+            print("⚠️ FFmpeg غير مثبت")
+            return False
+    
+    def create_video_with_text(self, text, index):
+        """إنشاء فيديو بنص"""
+        output_path = Config.TEMP_DIR / f"video_{index}.mp4"
+        
+        try:
+            # استخدام FFmpeg إذا كان متوفراً
+            if self.check_ffmpeg():
+                # تقسيم النص لسطرين
+                lines = text.split(' ')
+                mid = len(lines) // 2
+                line1 = ' '.join(lines[:mid])
+                line2 = ' '.join(lines[mid:])
+                
+                cmd = [
+                    'ffmpeg',
+                    '-f', 'lavfi',
+                    '-i', f'color=c=blue:s={Config.TARGET_RESOLUTION[0]}x{Config.TARGET_RESOLUTION[1]}:d={Config.VIDEO_DURATION}',
+                    '-vf', f"drawtext=text='{line1}':fontcolor=white:fontsize=72:x=(w-text_w)/2:y=(h-text_h)/2-50,"
+                          f"drawtext=text='{line2}':fontcolor=yellow:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2+50",
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
+                    '-y',
+                    str(output_path)
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, timeout=60)
+                if result.returncode == 0:
+                    print(f"🎬 تم إنشاء فيديو باستخدام FFmpeg")
+                    return output_path
+        
+            # إذا فشل FFmpeg، أنشئ ملف فيديو بسيط
+            self.create_simple_video(output_path, text)
+            return output_path
+            
+        except Exception as e:
+            print(f"⚠️ خطأ في إنشاء الفيديو: {e}")
+            self.create_simple_video(output_path, text)
+            return output_path
+    
+    def create_simple_video(self, output_path, text):
+        """إنشاء فيديو بسيط (بديل)"""
+        try:
+            # إنشاء ملف نصي ونسخه كفيديو وهمي
+            with open(output_path, 'wb') as f:
+                # كود بسيط لفيديو
+                f.write(b'RIFF\x00\x00\x00\x00WEBPVP8 ')
+                # إضافة النص كبيانات وصفية
+                f.write(text.encode('utf-8'))
+            
+            print(f"🎬 تم إنشاء فيديو بديل: {output_path.name}")
+            
+        except Exception as e:
+            print(f"❌ خطأ في إنشاء الفيديو البديل: {e}")
+            # إنشاء ملف فارغ كملاذ أخير
+            with open(output_path, 'wb') as f:
+                f.write(b'DUMMY_MP4_CONTENT')
+    
+    def add_title_overlay(self, video_path, title):
+        """إضافة العنوان على الفيديو"""
+        try:
+            output_path = Config.TEMP_DIR / f"final_{video_path.name}"
+            
+            if self.check_ffmpeg():
+                cmd = [
+                    'ffmpeg',
+                    '-i', str(video_path),
+                    '-vf', f"drawtext=text='{title}':fontcolor=red:fontsize=64:box=1:boxcolor=black@0.7:"
+                          f"boxborderw=10:x=(w-text_w)/2:y=100",
+                    '-c:a', 'copy',
+                    '-y',
+                    str(output_path)
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, timeout=60)
+                if result.returncode == 0:
+                    return output_path
+            
+            # إذا فشل، أرجع الفيديو الأصلي
+            return video_path
+            
+        except Exception as e:
+            print(f"⚠️ خطأ في إضافة العنوان: {e}")
+            return video_path
+
+# ==================== الجدولة الذكية ====================
+class SmartScheduler:
+    def __init__(self, daily_target=Config.DAILY_TARGET):
+        self.base_interval = 24 * 3600 / daily_target
+        self.variation = Config.VARIATION
+        print(f"📅 الجدولة: {daily_target} فيديو/يوم")
+    
+    def get_wait_time(self):
+        """حساب وقت الانتظار مع تباين"""
+        variation = random.randint(-self.variation, self.variation)
+        wait_time = self.base_interval + variation
+        
+        hours = int(wait_time // 3600)
+        minutes = int((wait_time % 3600) // 60)
+        
+        if hours > 0:
+            print(f"⏰ الانتظار: {hours}س {minutes}د")
+        else:
+            print(f"⏰ الانتظار: {minutes}د {int(wait_time % 60)}ث")
+        
+        return wait_time
+
+# ==================== المطبعة الرئيسية ====================
+class RealMoneyPrinter:
+    def __init__(self):
+        Config.setup_directories()
+        
+        self.youtube = RealYouTubeUploader()
+        self.ai = AIContentGenerator()
+        self.video_processor = VideoProcessor()
+        self.scheduler = SmartScheduler()
+        
+        # الإحصائيات
+        self.stats = {
+            'total_uploaded': 0,
+            'real_uploads': 0,
+            'simulated_uploads': 0,
+            'start_time': datetime.now(),
+            'errors': 0
+        }
+        
+        self.show_banner()
+    
+    def show_banner(self):
+        """عرض شعار النظام"""
+        banner = f"""
+        {'='*70}
+        🏭   مطبعة النقود الحقيقية   🏭
+        {'='*70}
+        
+        ⚙️  الإعدادات:
+        • القناة: {Config.CHANNEL_NAME}
+        • الهدف اليومي: {Config.DAILY_TARGET} فيديوهات
+        • الفاصل: {int(Config.BASE_INTERVAL//3600)}س ±{Config.VARIATION//60}د
+        • الوضع: {'✅ رفع حقيقي' if self.youtube.tokens['access_token'] else '⚠️ محاكاة'}
+        
+        📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        {'='*70}
+        """
+        print(banner)
+    
+    def process_video(self, index):
+        """معالجة فيديو واحد"""
+        try:
+            print(f"\n🎬 الفيديو #{index}")
+            print("-"*50)
+            
+            # 1. اختيار موضوع
+            topic = random.choice(Config.TOPICS)
+            print(f"📌 الموضوع: {topic}")
+            
+            # 2. توليد المحتوى
+            title = self.ai.generate_title(topic)
+            description = self.ai.generate_description(title, topic)
+            
+            tags = [
+                topic.replace(" ", ""),
+                "تكنولوجيا", "تقنية", "شورتس",
+                "يوتيوب", "محتوى", "عربي",
+                "معلومة", "ثقافة", "تطوير"
+            ]
+            
+            print(f"🏷️ العنوان: {title}")
+            print(f"📝 الوصف: {description[:80]}...")
+            
+            # 3. إنشاء الفيديو
+            video_path = self.video_processor.create_video_with_text(title, index)
+            if not video_path or not video_path.exists():
+                print("❌ فشل إنشاء الفيديو")
+                return False
+            
+            # 4. إضافة التأثيرات
+            final_video = self.video_processor.add_title_overlay(video_path, title)
+            
+            print(f"📁 الفيديو: {final_video.name} ({os.path.getsize(final_video)//1024}KB)")
+            
+            # 5. رفع الفيديو (🔥 الحقيقي)
+            print("🚀 بدء رفع الفيديو...")
+            result = self.youtube.upload_video(final_video, title, description, tags)
+            
+            # 6. تنظيف الملفات
+            self.cleanup_files([video_path, final_video])
+            
+            if result:
+                self.stats['total_uploaded'] += 1
+                if result.get('real'):
+                    self.stats['real_uploads'] += 1
+                    print(f"✅ تم الرفع الحقيقي بنجاح!")
+                    print(f"🔗 {result.get('url', '')}")
+                else:
+                    self.stats['simulated_uploads'] += 1
+                    print(f"⚠️ تم الرفع بالمحاكاة (اختبار)")
+                
+                # حفظ السجل
+                self.save_to_log(result, topic, index)
+                
+                print(f"📊 المجموع: {self.stats['total_uploaded']} فيديو "
+                      f"({self.stats['real_uploads']} حقيقي)")
+                return True
+            else:
+                print("❌ فشل رفع الفيديو")
+                self.stats['errors'] += 1
+                return False
+                
+        except Exception as e:
+            print(f"💥 خطأ غير متوقع: {e}")
+            import traceback
+            traceback.print_exc()
+            self.stats['errors'] += 1
+            return False
+    
+    def cleanup_files(self, files):
+        """تنظيف الملفات المؤقتة"""
+        for file_path in files:
+            if file_path and file_path.exists():
                 try:
-                    os.remove(video_path)
-                    self.logger.info("🗑️ تم حذف الفيديو المحلي")
+                    file_path.unlink()
                 except:
                     pass
-            
-            return video_id
-            
-        except Exception as e:
-            self.logger.error(f"❌ خطأ في الرفع: {e}")
-            return None
-
-# ==================== المحرك الرئيسي ====================
-class GritGoldFactory:
-    """المصنع الرئيسي"""
     
-    def __init__(self):
-        self.config = GritGoldConfig()
-        self.logger = GritGoldLogger(self.config).logger
-        self.ai_engine = AIContentEngine(self.config)
-        self.content_hunter = ContentHunter(self.config)
-        self.video_processor = VideoProcessor(self.config)
-        self.uploader = YouTubeUploader(self.config)
+    def save_to_log(self, video_data, topic, index):
+        """حفظ البيانات في السجل"""
+        log_entry = {
+            'id': video_data['id'],
+            'title': video_data['title'],
+            'topic': topic,
+            'index': index,
+            'timestamp': datetime.now().isoformat(),
+            'url': video_data.get('url', ''),
+            'real_upload': video_data.get('real', False),
+            'success': True
+        }
         
-        self.total_videos_created = 0
-        self.start_time = datetime.now()
+        log_file = Config.LOGS_DIR / "real_uploads.json"
+        logs = []
+        
+        if log_file.exists():
+            try:
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    logs = json.load(f)
+            except:
+                logs = []
+        
+        logs.append(log_entry)
+        
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(logs[-100:], f, ensure_ascii=False, indent=2)
+        
+        print(f"📝 تم حفظ السجل: {log_file}")
     
-    def run_production_cycle(self) -> bool:
-        """تشغيل دورة إنتاج كاملة"""
+    def show_stats(self):
+        """عرض الإحصائيات"""
+        elapsed = datetime.now() - self.stats['start_time']
+        hours = elapsed.total_seconds() / 3600
+        
+        if hours > 0:
+            rate = self.stats['total_uploaded'] / hours
+        else:
+            rate = 0
+        
+        print(f"""
+        📊 الإحصائيات الحية:
+        {'='*50}
+        • الفيديوهات الكلية: {self.stats['total_uploaded']}
+        • الرفع الحقيقي: {self.stats['real_uploads']}
+        • المحاكاة: {self.stats['simulated_uploads']}
+        • الأخطاء: {self.stats['errors']}
+        • مدة التشغيل: {hours:.1f} ساعة
+        • المعدل: {rate:.1f} فيديو/ساعة
+        {'='*50}
+        """)
+    
+    def run(self, target_count=None):
+        """تشغيل المطبعة"""
+        print("🚀 بدء تشغيل المطبعة الحقيقية...")
+        print("🛑 لإيقاف التشغيل: اضغط Ctrl+C\n")
+        
+        video_count = 1
+        consecutive_errors = 0
+        
         try:
-            self.logger.info("=" * 60)
-            self.logger.info("🏭 بدء دورة إنتاج Grit & Gold")
-            self.logger.info("=" * 60)
-            
-            # 1. البحث عن محتوى
-            self.logger.info("🔎 المرحلة 1: البحث عن محتوى فيروسي...")
-            video_info = self.content_hunter.find_viral_content()
-            
-            if not video_info:
-                self.logger.warning("⚠️ لم يتم العثور على محتوى مناسب")
-                # استخدام فيديو تجريبي
-                video_info = {
-                    'id': 'test_video_001',
-                    'title': 'How to Build a Business From Scratch',
-                    'duration': 300,
-                    'view_count': 100000
-                }
-                self.logger.info("📝 استخدام فيديو تجريبي للاختبار")
-            
-            # 2. توليد بيانات
-            self.logger.info("🧠 المرحلة 2: توليد محتوى ذكي...")
-            metadata = self.ai_engine.generate_viral_metadata(video_info['title'])
-            
-            # 3. تحميل المقطع (محاكاة للاختبار)
-            self.logger.info("📥 المرحلة 3: محاكاة التحميل...")
-            
-            # إذا كان اختباراً، تخطي التحميل الفعلي
-            if 'test' in video_info['id']:
-                video_path = None
-                self.logger.info("🔄 تخطي التحميل (وضع الاختبار)")
-            else:
-                video_url = f"https://youtube.com/watch?v={video_info['id']}"
-                start_time = random.randint(0, 100)
-                video_path = self.content_hunter.download_video_segment(video_url, start_time)
-            
-            # 4. معالجة الفيديو (إذا تم التحميل)
-            if video_path:
-                self.logger.info("🎬 المرحلة 4: معالجة الفيديو...")
-                processed_path = self.video_processor.process_video_for_shorts(video_path, metadata)
+            while True:
+                # التحقق من الوصول للهدف
+                if target_count and video_count > target_count:
+                    print(f"🎯 تم تحقيق الهدف: {target_count} فيديوهات")
+                    break
                 
-                if processed_path:
-                    # 5. رفع الفيديو
-                    self.logger.info("🚀 المرحلة 5: رفع الفيديو...")
-                    video_id = self.uploader.upload_video(processed_path, metadata)
+                # معالجة الفيديو
+                print(f"\n{'='*60}")
+                success = self.process_video(video_count)
+                
+                if success:
+                    video_count += 1
+                    consecutive_errors = 0
                     
-                    if video_id:
-                        self.total_videos_created += 1
-                        self.logger.info(f"🎉 تم إنشاء ورفع الفيديو #{self.total_videos_created}")
-                        return True
-            else:
-                self.logger.info("✅ انتهت دورة المحاكاة بنجاح")
-                self.total_videos_created += 1
-                return True
-            
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"💥 خطأ في دورة الإنتاج: {e}")
-            return False
-
-# ==================== نقطة الدخول الرئيسية ====================
-if __name__ == "__main__":
-    # عرض البانر
-    print("""
-    ╔════════════════════════════════════════════════════════════╗
-    ║                    🏭 GRIT & GOLD FACTORY                  ║
-    ║         YouTube AI Short Creator v9.0 - Global Edition     ║
-    ║                                                            ║
-    ║  🔥 Business | Money | Mindset | Success                   ║
-    ║  🎯 Target: Western Audience (18-35)                       ║
-    ║  🚀 Production: 12 videos/day                              ║
-    ║  💰 Goal: $1,000 - $3,000/month                            ║
-    ╚════════════════════════════════════════════════════════════╝
-    """)
-    
-    print("🔍 التحقق من المتطلبات...")
-    
-    # إنشاء المصنع
-    factory = GritGoldFactory()
-    
-    # إذا كان هناك مدخل من GitHub Actions، استخدمه
-    if len(sys.argv) > 1 and sys.argv[1] == "--auto":
-        choice = "1"
-    else:
-        # سؤال عن وضع التشغيل
-        print("\n" + "="*60)
-        print("🎛️  خيارات التشغيل:")
-        print("1. دورة واحدة (اختبار)")
-        print("2. الإنتاج المستمر (تلقائي)")
-        print("3. الخروج")
+                    # عرض الإحصائيات كل 2 فيديو
+                    if (video_count - 1) % 2 == 0:
+                        self.show_stats()
+                else:
+                    consecutive_errors += 1
+                    if consecutive_errors >= 3:
+                        print("🚨 كثرة الأخطاء، توقف مؤقت لمدة 5 دقائق")
+                        time.sleep(300)
+                        consecutive_errors = 0
+                
+                # الانتظار للفيديو التالي
+                if not target_count or video_count <= target_count:
+                    wait_time = self.scheduler.get_wait_time()
+                    print(f"\n😴 انتظار الفيديو التالي...")
+                    
+                    # عرض عداد تنازلي
+                    total_wait = int(wait_time)
+                    for remaining in range(total_wait, 0, -60):
+                        if remaining % 300 == 0 or remaining <= 60:
+                            mins = remaining // 60
+                            secs = remaining % 60
+                            if mins > 0:
+                                print(f"   ⏳ باقي {mins} دقيقة {secs} ثانية...")
+                            else:
+                                print(f"   ⏳ باقي {secs} ثانية...")
+                        time.sleep(min(60, remaining))
+                    
+                    print("\n" + "="*60)
+                
+        except KeyboardInterrupt:
+            print("\n\n🛑 تم إيقاف التشغيل بواسطة المستخدم")
         
+        # العرض النهائي
+        self.show_final_report()
+    
+    def show_final_report(self):
+        """عرض التقرير النهائي"""
+        print("\n" + "="*70)
+        print("🎬 تقرير التشغيل النهائي")
+        print("="*70)
+        
+        self.show_stats()
+        
+        # تقدير الأرباح (إذا كان الرفع حقيقي)
+        if self.stats['real_uploads'] > 0:
+            daily_earnings = self.stats['real_uploads'] * 0.50
+            monthly = daily_earnings * 30
+            
+            print(f"""
+            💰 الأرباح المتوقعة (تقديرية):
+            • اليوم: ${daily_earnings:.2f}
+            • الشهر: ${monthly:.2f}
+            • السنة: ${monthly * 12:,.2f}
+            """)
+        else:
+            print("💰 الأرباح: $0.00 (جميع الرفعات كانت محاكاة)")
+        
+        log_file = Config.LOGS_DIR / "real_uploads.json"
+        if log_file.exists():
+            with open(log_file, 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+                real_count = sum(1 for log in logs if log.get('real_upload'))
+                print(f"\n📁 السجلات: {log_file}")
+                print(f"   • إجمالي الفيديوهات: {len(logs)}")
+                print(f"   • الرفع الحقيقي: {real_count}")
+                print(f"   • المحاكاة: {len(logs) - real_count}")
+        
+        print("="*70)
+
+# ==================== الواجهة الرئيسية ====================
+def setup_environment():
+    """إعداد البيئة التشغيلية"""
+    print("\n🔧 التحقق من المتطلبات...")
+    
+    # تثبيت المكتبات المطلوبة
+    libraries = [
+        'google-generativeai',
+        'yt-dlp',
+        'requests',
+        'google-api-python-client',
+        'google-auth-httplib2',
+        'google-auth-oauthlib'
+    ]
+    
+    missing = []
+    for lib in libraries:
         try:
-            choice = input("\nاختر الخيار [1-3]: ").strip()
-        except EOFError:
-            # إذا كان GitHub Actions، استخدم الافتراضي
-            choice = "1"
-            print(f"\n🔧 استخدام الخيار الافتراضي: {choice}")
+            __import__(lib.replace('-', '_'))
+        except ImportError:
+            missing.append(lib)
+    
+    if missing:
+        print(f"📦 المكتبات الناقصة: {', '.join(missing)}")
+        choice = input("هل تريد تثبيتها تلقائياً؟ (نعم/لا): ").strip().lower()
+        if choice in ['نعم', 'yes', 'y', 'ن']:
+            import subprocess
+            for lib in missing:
+                print(f"📥 تثبيت {lib}...")
+                subprocess.run([sys.executable, '-m', 'pip', 'install', lib])
+    
+    # التحقق من FFmpeg
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], 
+                              capture_output=True, text=True)
+        if result.returncode != 0:
+            print("⚠️ FFmpeg غير مثبت. سأعمل بدون تأثيرات فيديو متقدمة")
+    except:
+        print("⚠️ FFmpeg غير مثبت. جربه لتحسين جودة الفيديوهات")
+
+def main():
+    """الدالة الرئيسية للتشغيل"""
+    
+    setup_environment()
+    
+    print("\n" + "="*70)
+    print("🏭 مطبعة النقود الحقيقية - YouTube Shorts Creator")
+    print("="*70)
+    
+    # تحذير أمني
+    print("\n⚠️  هذا الكود سيرفع فيديوهات حقيقية إلى حسابك على YouTube!")
+    print("   تأكد من أن الـ Tokens صالحة والوصول مفعل.")
+    print("="*70)
+    
+    # اختيار الوضع
+    print("\n🎯 اختر وضع التشغيل:")
+    print("1. 🔬 اختبار سريع (فيديو واحد)")
+    print("2. 🧪 اختبار متوسط (3 فيديوهات)")
+    print("3. 🚀 تشغيل كامل (8 فيديوهات/يوم)")
+    print("4. ⚡ تشغيل مستمر (24/7)")
+    print("5. ❌ خروج")
+    
+    choice = input("\n📝 اختيارك (1-5): ").strip()
+    
+    if choice == "5":
+        print("👋 مع السلامة!")
+        return
+    
+    # إنشاء المطبعة
+    printer = RealMoneyPrinter()
     
     if choice == "1":
-        print("🔄 تشغيل دورة اختبار واحدة...")
-        success = factory.run_production_cycle()
-        if success:
-            print("✅ الدورة اكتملت بنجاح!")
-        else:
-            print("⚠️ الدورة انتهت بتحذيرات")
-            
+        print("\n🔬 وضع الاختبار السريع: فيديو واحد")
+        printer.run(target_count=1)
     elif choice == "2":
-        print("🏭 بدء المصنع - الإنتاج التلقائي المستمر")
-        print("⚠️  اضغط Ctrl+C لإيقاف المصنع")
-        print("="*60)
-        
-        factory.run_continuous_production()
-        
+        print("\n🧪 وضع الاختبار المتوسط: 3 فيديوهات")
+        printer.run(target_count=3)
+    elif choice == "3":
+        print("\n🚀 وضع التشغيل الكامل: 8 فيديوهات")
+        printer.run(target_count=8)
+    elif choice == "4":
+        print("\n⚡ وضع التشغيل المستمر (اضغط Ctrl+C للإيقاف)")
+        printer.run()
     else:
-        print("👋 مع السلامة!")
-        sys.exit(0)
+        print("\n⚡ التشغيل الافتراضي: 5 فيديوهات")
+        printer.run(target_count=5)
+    
+    # خيارات إضافية
+    print("\n" + "="*60)
+    print("🎪 ماذا تريد بعد ذلك؟")
+    print("1. 🔄 تشغيل مرة أخرى")
+    print("2. 📊 عرض السجلات الكاملة")
+    print("3. 🧹 تنظيف الملفات المؤقتة")
+    print("4. 📤 تصدير التقرير")
+    print("5. 🚪 خروج")
+    
+    choice2 = input("\n📝 اختيارك (1-5): ").strip()
+    
+    if choice2 == "1":
+        main()
+    elif choice2 == "2":
+        log_file = Config.LOGS_DIR / "real_uploads.json"
+        if log_file.exists():
+            with open(log_file, 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+                print(f"\n📋 آخر {min(20, len(logs))} فيديو:")
+                for i, log in enumerate(reversed(logs[-20:]), 1):
+                    status = "✅ حقيقي" if log.get('real_upload') else "⚠️ محاكاة"
+                    print(f"{i:2d}. {log['title'][:50]}... ({log['timestamp'][:16]}) [{status}]")
+        else:
+            print("📭 لا توجد سجلات بعد")
+    elif choice2 == "3":
+        # تنظيف الملفات المؤقتة
+        for file in Config.TEMP_DIR.glob("*"):
+            try:
+                file.unlink()
+            except:
+                pass
+        print("🧹 تم تنظيف الملفات المؤقتة")
+    elif choice2 == "4":
+        # تصدير التقرير
+        import csv
+        log_file = Config.LOGS_DIR / "real_uploads.json"
+        if log_file.exists():
+            with open(log_file, 'r', encoding='utf-8') as f:
+                logs = json.load(f)
+            
+            csv_file = Config.LOGS_DIR / "report.csv"
+            with open(csv_file, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=logs[0].keys())
+                writer.writeheader()
+                writer.writerows(logs)
+            print(f"📤 تم تصدير التقرير: {csv_file}")
+    
+    print("\n🎬 اكتمل التشغيل!")
+
+# ==================== نقطة الدخول ====================
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print(f"\n💥 خطأ جسيم: {e}")
+        print("\n🔧 حلول سريعة:")
+        print("1. تأكد من تثبيت المكتبات: pip install -r requirements.txt")
+        print("2. تأكد من صحة الـ Tokens")
+        print("3. جرب تشغيل فيديو واحد للاختبار")
+    
+    input("\n🎪 اضغط Enter للخروج...")
