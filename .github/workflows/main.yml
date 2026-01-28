@@ -32,4 +32,4 @@ jobs:
         ACCOUNT_NUMBER: 1
         START_HOUR: 8
         DAILY_TARGET: 1 # فيديو واحد لضمان الاستقرار
-      run: python "deepseek_python_20260128_0787be (1).py"
+      run: python "deepseek_python_20260127_288de0.py"
