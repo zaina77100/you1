@@ -1,111 +1,35 @@
-name: Grit & Gold Auto-Uploader
+name: Grit & Gold Factory - Account 1
+
 on:
   schedule:
-    - cron: '0 */4 * * *'  # يعمل كل 4 ساعات تلقائياً
-  workflow_dispatch:  # يسمح لك بتشغيله يدوياً
+    # سيتم التشغيل كل يوم الساعة 8 صباحاً بتوقيت UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch: # يسمح لك بتشغيل البوت يدوياً للتجربة
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-      
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          
-          # تثبيت moviepy أولاً مع dependencies المطلوبة
-          pip install numpy==1.24.0
-          pip install pillow==10.2.0
-          pip install imageio==2.31.5
-          pip install imageio-ffmpeg==0.4.9
-          pip install decorator==5.1.1
-          pip install tqdm==4.66.1
-          pip install proglog==0.1.10
-          
-          # تثبيت moviepy
-          pip install moviepy==1.0.3
-          
-          # اختبار moviepy
-          python -c "from moviepy.editor import VideoFileClip; print('✅ moviepy يعمل')"
-          
-          # تثبيت باقي المكتبات
-          pip install google-genai
-          pip install google-api-python-client
-          pip install google-auth-oauthlib
-          pip install yt-dlp
-          pip install opencv-python-headless
-      
-      - name: Create config from secrets
-        run: |
-          mkdir -p config_grit_gold
-          
-          # إنشاء ملف Gemini key
-          if [ -n "$GEMINI_API_KEY" ]; then
-            echo "$GEMINI_API_KEY" > config_grit_gold/gemini_key.txt
-            echo "✅ تم إنشاء ملف gemini_key.txt"
-          else
-            echo "⚠️ GEMINI_API_KEY غير موجود"
-          fi
-          
-          # إنشاء ملف youtube credentials
-          if [ -n "$YOUTUBE_CREDENTIALS" ]; then
-            echo "$YOUTUBE_CREDENTIALS" > config_grit_gold/youtube_credentials.json
-            echo "✅ تم إنشاء ملف youtube_credentials.json"
-          else
-            echo "⚠️ YOUTUBE_CREDENTIALS غير موجود"
-          fi
-          
-          # إنشاء باقي المجلدات
-          mkdir -p output_grit_gold temp_grit_gold logs_grit_gold database_grit_gold
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          YOUTUBE_CREDENTIALS: ${{ secrets.YOUTUBE_CREDENTIALS }}
-      
-      - name: Test all imports
-        run: |
-          echo "🔍 اختبار استيراد جميع المكتبات..."
-          python -c "
-          import sys
-          
-          # قائمة المكتبات المطلوبة
-          libs = [
-              ('google.genai', 'import google.genai'),
-              ('googleapiclient', 'from googleapiclient.discovery import build'),
-              ('yt-dlp', 'import yt_dlp'),
-              ('moviepy', 'from moviepy.editor import VideoFileClip'),
-              ('opencv', 'import cv2'),
-              ('PIL', 'from PIL import Image'),
-          ]
-          
-          for name, imp in libs:
-              try:
-                  exec(imp)
-                  print(f'✅ {name} - OK')
-              except ImportError as e:
-                  print(f'❌ {name} - خطأ: {e}')
-                  if name in ['moviepy', 'google.genai', 'yt-dlp']:
-                      sys.exit(1)
-          
-          print('🎉 جميع المكتبات مثبتة بشكل صحيح!')
-          "
-      
-      - name: Run Bot
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          YOUTUBE_CREDENTIALS: ${{ secrets.YOUTUBE_CREDENTIALS }}
-        run: |
-          echo "🚀 بدء تشغيل البوت..."
-          python deepseek_python_20260127_288de0.py --auto
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install FFmpeg
+      run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+    - name: Run Factory
+      env:
+        # ربط الأسرار التي وضعتها في الإعدادات بالكود
+        YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+        YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        ACCOUNT_NUMBER: 1
+        START_HOUR: 8
+        DAILY_TARGET: 1 # فيديو واحد لضمان الاستقرار
+      run: python "deepseek_python_20260128_0787be (1).py"
